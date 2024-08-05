@@ -16,7 +16,7 @@
                 </div>
             </div>
             <p class="url">
-                <a v-if="monitor.type === 'http' || monitor.type === 'keyword' || monitor.type === 'json-query' || monitor.type === 'mp-health' || monitor.type === 'real-browser' " :href="monitor.url" target="_blank" rel="noopener noreferrer">{{ filterPassword(monitor.url) }}</a>
+                <a v-if="monitor.type === 'http' || monitor.type === 'http-test' || monitor.type === 'keyword' || monitor.type === 'json-query' || monitor.type === 'mp-health' || monitor.type === 'real-browser' " :href="monitor.url" target="_blank" rel="noopener noreferrer">{{ filterPassword(monitor.url) }}</a>
                 <span v-if="monitor.type === 'port'">TCP Port {{ monitor.hostname }}:{{ monitor.port }}</span>
                 <span v-if="monitor.type === 'ping'">Ping: {{ monitor.hostname }}</span>
                 <span v-if="monitor.type === 'keyword'">
@@ -558,7 +558,8 @@ export default {
                 translationPrefix = "Avg. ";
             }
 
-            if (this.monitor.type === "http" || this.monitor.type === "keyword" || this.monitor.type === "json-query") {
+            if (this.monitor.type === "http" || this.monitor.type === "keyword" || this.monitor.type === "json-query" || this.monitor.type === "http-test") {
+                console.log("Tipe Monitor:", this.monitor.type);
                 return this.$t(translationPrefix + "Response");
             }
 

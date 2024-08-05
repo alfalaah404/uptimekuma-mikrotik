@@ -366,7 +366,7 @@ async function createTables() {
 
     await knex("monitor")
         .where(function () {
-            this.where("type", "http").orWhere("type", "keyword");
+            this.where("type", "http").orWhere("type", "keyword").orWhere("type", "http-test");
         })
         .whereNull("http_body_encoding")
         .update({

@@ -115,6 +115,7 @@ class UptimeKumaServer {
         UptimeKumaServer.monitorTypeList["mqtt"] = new MqttMonitorType();
         UptimeKumaServer.monitorTypeList["snmp"] = new SNMPMonitorType();
         UptimeKumaServer.monitorTypeList["mongodb"] = new MongodbMonitorType();
+        UptimeKumaServer.monitorTypeList["http-test"] = UptimeKumaServer.monitorTypeList["http"];
 
         // Allow all CORS origins (polling) in development
         let cors = undefined;
