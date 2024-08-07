@@ -66,9 +66,9 @@ class Monitor extends BeanModel {
             obj.validCert = validCert;
         }
 
-        obj.mikrotikUser = this.mikrotikUser;
+        obj.mikrotikUsername = this.mikrotikUsername;
         obj.mikrotikPassword = this.mikrotikPassword;
-        obj.mikrotikIP = this.mikrotikIP;
+        obj.mikrotikIp = this.mikrotikIp;
 
         return obj;
     }
@@ -167,9 +167,9 @@ class Monitor extends BeanModel {
             snmpOid: this.snmpOid,
             jsonPathOperator: this.jsonPathOperator,
             snmpVersion: this.snmpVersion,
-            mikrotikUser: this.mikrotikUser,
+            mikrotikUsername: this.mikrotikUsername,
             mikrotikPassword: this.mikrotikPassword,
-            mikrotikIP: this.mikrotikIP,
+            mikrotikIp: this.mikrotikIp,
         };
 
         if (includeSensitiveData) {
@@ -199,9 +199,9 @@ class Monitor extends BeanModel {
                 tlsCert: this.tlsCert,
                 tlsKey: this.tlsKey,
                 kafkaProducerSaslOptions: JSON.parse(this.kafkaProducerSaslOptions),
-                mikrotikUser: this.mikrotikUser,
+                mikrotikUsername: this.mikrotikUsername,
                 mikrotikPassword: this.mikrotikPassword,
-                mikrotikIP: this.mikrotikIP,
+                mikrotikIp: this.mikrotikIp,
             };
         }
 
@@ -431,7 +431,27 @@ class Monitor extends BeanModel {
                         bean.msg = "Group empty";
                     }
 
-                } else if (this.type === "http" || this.type === "keyword" || this.type === "json-query" || this.type === "http-test") {
+                } else if (this.type === "http-test") {
+                    const startTime = dayjs().valueOf();
+                    const hostname = this.url.replace(/(^\w+:|^)\/\//, ""); // Removes http:// or https://
+                    const response = await axios.post(`http://${this.mikrotikIp}/rest/tool/ping`, {
+                        address: hostname,
+                        count: 1
+                    }, {
+                        auth: {
+                            username: this.mikrotikUsername,
+                            password: this.mikrotikPassword
+                        },
+                        timeout: this.timeout * 1000
+                    });
+                    if (response.status === 200) {
+                        bean.status = UP;
+                        bean.msg = `Ping successful: ${JSON.stringify(response.data)} ${hostname}`;
+                        bean.ping = dayjs().valueOf() - startTime;
+                    } else {
+                        throw new Error(`Ping failed: ${response.status} - ${response.statusText} - ${hostname}`);
+                    }
+                } else if (this.type === "http" || this.type === "keyword" || this.type === "json-query") {
                     // Do not do any queries/high loading things before the "bean.ping"
                     let startTime = dayjs().valueOf();
 
@@ -1053,7 +1073,7 @@ class Monitor extends BeanModel {
             let res;
 
             if (this.auth_method === "mikrotik") {
-                options.headers["Authorization"] = "Basic " + Buffer.from(`${this.mikrotikUser}:${this.mikrotikPassword}`).toString("base64");
+                options.headers["Authorization"] = "Basic " + Buffer.from(`${this.mikrotikUsername}:${this.mikrotikPassword}`).toString("base64");
             }
 
             if (this.auth_method === "ntlm") {
