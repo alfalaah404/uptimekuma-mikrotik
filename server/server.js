@@ -835,7 +835,9 @@ let needSetup = false;
                 bean.snmpOid = monitor.snmpOid;
                 bean.jsonPathOperator = monitor.jsonPathOperator;
                 bean.timeout = monitor.timeout;
-
+                bean.mikrotikIp = monitor.mikrotikIp;
+                bean.mikrotikUsername = monitor.mikrotikUsername;
+                bean.mikrotikPassword = monitor.mikrotikPassword;
                 bean.validate();
 
                 await R.store(bean);

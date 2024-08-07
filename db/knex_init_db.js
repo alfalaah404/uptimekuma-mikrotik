@@ -123,7 +123,10 @@ async function createTables() {
         table.string("radius_secret", 255);
         table.integer("resend_interval").notNullable().defaultTo(0);
         table.integer("packet_size").notNullable().defaultTo(56);
-        table.string("game", 255);
+        table.string("game", 255),
+        table.string("mikrotik_ip", 255),
+        table.string("mikrotik_username", 255),
+        table.string("mikrotik_password", 255);
     });
 
     // heartbeat

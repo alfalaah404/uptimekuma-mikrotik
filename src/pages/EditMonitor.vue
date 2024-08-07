@@ -675,8 +675,24 @@
                                 {{ $t("Setup Notification") }}
                             </button>
 
+                            <div v-if="monitor.type === 'http-test'">
+                                <h2 class="mt-5 mb-2">{{ $t("MikroTik Authentication") }}</h2>
+                                <div class="my-3">
+                                    <label for="mikrotik-ip" class="form-label">{{ $t("Ip") }}</label>
+                                    <input id="mikrotik-ip" v-model="monitor.mikrotikIp" type="text" class="form-control" required>
+                                </div>
+                                <div class="my-3">
+                                    <label for="mikrotik-username" class="form-label">{{ $t("Username") }}</label>
+                                    <input id="mikrotik-username" v-model="monitor.mikrotikUsername" type="text" class="form-control" required>
+                                </div>
+                                <div class="my-3">
+                                    <label for="mikrotik-password" class="form-label">{{ $t("Password") }}</label>
+                                    <input id="mikrotik-password" v-model="monitor.mikrotikPassword" type="password" class="form-control" required>
+                                </div>
+                            </div>
+
                             <!-- Proxies -->
-                            <div v-if="monitor.type === 'http' || monitor.type === 'keyword' || monitor.type === 'json-query' || monitor.type === 'http-test'">
+                            <div v-if="monitor.type === 'http' || monitor.type === 'keyword' || monitor.type === 'json-query'">
                                 <h2 class="mt-5 mb-2">{{ $t("Proxy") }}</h2>
                                 <p v-if="$root.proxyList.length === 0">
                                     {{ $t("Not available, please setup.") }}
@@ -754,7 +770,7 @@
                             </template>
 
                             <!-- HTTP Options -->
-                            <template v-if="monitor.type === 'http' || monitor.type === 'keyword' || monitor.type === 'json-query' || monitor.type === 'http-test'">
+                            <template v-if="monitor.type === 'http' || monitor.type === 'keyword' || monitor.type === 'json-query'">
                                 <h2 class="mt-5 mb-2">{{ $t("HTTP Options") }}</h2>
 
                                 <!-- Method -->
@@ -1024,7 +1040,10 @@ const monitorDefaults = {
     kafkaProducerSsl: false,
     kafkaProducerAllowAutoTopicCreation: false,
     gamedigGivenPortOnly: true,
-    remote_browser: null
+    remote_browser: null,
+    mikrotikIp: "",
+    mikrotikUsername: "",
+    mikrotikPassword: ""
 };
 
 export default {

@@ -66,6 +66,10 @@ class Monitor extends BeanModel {
             obj.validCert = validCert;
         }
 
+        obj.mikrotikUser = this.mikrotikUser;
+        obj.mikrotikPassword = this.mikrotikPassword;
+        obj.mikrotikIP = this.mikrotikIP;
+
         return obj;
     }
 
@@ -163,6 +167,9 @@ class Monitor extends BeanModel {
             snmpOid: this.snmpOid,
             jsonPathOperator: this.jsonPathOperator,
             snmpVersion: this.snmpVersion,
+            mikrotikUser: this.mikrotikUser,
+            mikrotikPassword: this.mikrotikPassword,
+            mikrotikIP: this.mikrotikIP,
         };
 
         if (includeSensitiveData) {
@@ -192,6 +199,9 @@ class Monitor extends BeanModel {
                 tlsCert: this.tlsCert,
                 tlsKey: this.tlsKey,
                 kafkaProducerSaslOptions: JSON.parse(this.kafkaProducerSaslOptions),
+                mikrotikUser: this.mikrotikUser,
+                mikrotikPassword: this.mikrotikPassword,
+                mikrotikIP: this.mikrotikIP,
             };
         }
 
@@ -1041,6 +1051,11 @@ class Monitor extends BeanModel {
     async makeAxiosRequest(options, finalCall = false) {
         try {
             let res;
+
+            if (this.auth_method === "mikrotik") {
+                options.headers["Authorization"] = "Basic " + Buffer.from(`${this.mikrotikUser}:${this.mikrotikPassword}`).toString("base64");
+            }
+
             if (this.auth_method === "ntlm") {
                 options.httpsAgent.keepAlive = true;
 
