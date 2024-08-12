@@ -292,6 +292,98 @@ let needSetup = false;
         }
     });
 
+    // ***************************
+    // Mikrotik API
+    // ***************************
+
+    // app.use((req, res, next) => {
+    //     res.setHeader("Access-Control-Allow-Origin", "http://localhost:3000");
+    //     res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    //     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    //     next();
+    // });
+
+    // app.options("*", (req, res) => {
+    //     res.setHeader("Access-Control-Allow-Origin", "http://localhost:3000");
+    //     res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    //     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    //     res.sendStatus(200);
+    // });
+
+    // app.listen(3001, () => {
+    //     console.log("Server running on http://localhost:3001");
+    // });
+
+    // app.post("/api/mikrotik", async (req, res) => {
+    //     try {
+    //         const { ip, username, password } = req.body;
+
+    //         let mikrotik = R.dispense("mikrotik");
+    //         mikrotik.ip = ip;
+    //         mikrotik.username = username;
+    //         mikrotik.password = password;
+
+    //         await R.store(mikrotik);
+
+    //         res.status(201).json({ message: "Mikrotik created successfully",
+    //             id: mikrotik.id });
+    //     } catch (error) {
+    //         console.error("Error creating Mikrotik:", error);
+    //         res.status(500).json({ error: error.message });
+    //     }
+    // });
+
+    // app.get("/api/mikrotik", async (req, res) => {
+    //     try {
+    //         let mikrotikList = await R.findAll("mikrotik");
+    //         res.status(200).json(mikrotikList);
+    //     } catch (error) {
+    //         console.error("Error fetching Mikrotik list:", error);
+    //         res.status(500).json({ error: error.message });
+    //     }
+    // });
+
+    // app.put("/api/mikrotik/:id", async (req, res) => {
+    //     try {
+    //         let mikrotik = await R.findOne("mikrotik", "id = ?", [ req.params.id ]);
+
+    //         if (!mikrotik) {
+    //             return res.status(404).json({ error: "Mikrotik not found" });
+    //         }
+
+    //         const { name, ip_address, username, password } = req.body;
+
+    //         mikrotik.name = name || mikrotik.name;
+    //         mikrotik.ip_address = ip_address || mikrotik.ip_address;
+    //         mikrotik.username = username || mikrotik.username;
+    //         mikrotik.password = password || mikrotik.password;
+
+    //         await R.store(mikrotik);
+
+    //         res.status(200).json({ message: "Mikrotik updated successfully" });
+    //     } catch (error) {
+    //         console.error("Error updating Mikrotik:", error);
+    //         res.status(500).json({ error: error.message });
+    //     }
+    // });
+
+    // app.delete("/api/mikrotik/:id", async (req, res) => {
+    //     try {
+    //         let mikrotik = await R.findOne("mikrotik", "id = ?", [ req.params.id ]);
+
+    //         if (!mikrotik) {
+    //             return res.status(404).json({ error: "Mikrotik not found" });
+    //         }
+
+    //         await R.trash(mikrotik);
+
+    //         res.status(200).json({ message: "Mikrotik deleted successfully" });
+    //     } catch (error) {
+    //         console.error("Error deleting Mikrotik:", error);
+    //         res.status(500).json({ error: error.message });
+    //     }
+    // });
+
     log.debug("server", "Adding socket handler");
     io.on("connection", async (socket) => {
 
@@ -357,6 +449,95 @@ let needSetup = false;
                 });
             }
 
+        });
+
+        // mikrotik
+
+        // Mikrotik CRUD operations using Socket.IO
+
+        // Create Mikrotik
+        socket.on("createMikrotik", async (data, callback) => {
+            console.log("createMikrotik", data);
+            try {
+                const { ip, username, password } = data;
+
+                let mikrotik = R.dispense("mikrotik");
+                mikrotik.ip = ip;
+                mikrotik.username = username;
+                mikrotik.password = password;
+
+                await R.store(mikrotik);
+
+                callback({ ok: true,
+                    message: "Mikrotik created successfully",
+                    id: mikrotik.id });
+            } catch (error) {
+                console.error("Error creating Mikrotik:", error);
+                callback({ ok: false,
+                    error: error.message });
+            }
+        });
+
+        // Read Mikrotik
+        socket.on("getMikrotik", async (callback) => {
+            try {
+                let mikrotikList = await R.findAll("mikrotik");
+                callback({ ok: true,
+                    mikrotikList });
+            } catch (error) {
+                console.error("Error fetching Mikrotik list:", error);
+                callback({ ok: false,
+                    error: error.message });
+            }
+        });
+
+        // Update Mikrotik
+        socket.on("updateMikrotik", async (data, callback) => {
+            try {
+                const { id, name, ip_address, username, password } = data;
+
+                let mikrotik = await R.findOne("mikrotik", "id = ?", [ id ]);
+
+                if (!mikrotik) {
+                    return callback({ ok: false,
+                        error: "Mikrotik not found" });
+                }
+
+                mikrotik.name = name || mikrotik.name;
+                mikrotik.ip_address = ip_address || mikrotik.ip_address;
+                mikrotik.username = username || mikrotik.username;
+                mikrotik.password = password || mikrotik.password;
+
+                await R.store(mikrotik);
+
+                callback({ ok: true,
+                    message: "Mikrotik updated successfully" });
+            } catch (error) {
+                console.error("Error updating Mikrotik:", error);
+                callback({ ok: false,
+                    error: error.message });
+            }
+        });
+
+        // Delete Mikrotik
+        socket.on("deleteMikrotik", async (id, callback) => {
+            try {
+                let mikrotik = await R.findOne("mikrotik", "id = ?", [ id ]);
+
+                if (!mikrotik) {
+                    return callback({ ok: false,
+                        error: "Mikrotik not found" });
+                }
+
+                await R.trash(mikrotik);
+
+                callback({ ok: true,
+                    message: "Mikrotik deleted successfully" });
+            } catch (error) {
+                console.error("Error deleting Mikrotik:", error);
+                callback({ ok: false,
+                    error: error.message });
+            }
         });
 
         socket.on("login", async (data, callback) => {

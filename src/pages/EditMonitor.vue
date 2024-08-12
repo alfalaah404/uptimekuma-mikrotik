@@ -674,7 +674,7 @@
                             <button class="btn btn-primary me-2" type="button" @click="$refs.notificationDialog.show()">
                                 {{ $t("Setup Notification") }}
                             </button>
-                            <!-- MikroTik Configurations -->
+
                             <div v-if="monitor.type === 'http-test'">
                                 <h2 class="mt-5 mb-2">{{ $t("MikroTik Authentication") }}</h2>
 
@@ -698,7 +698,7 @@
                                 <div v-for="(mikrotik, index) in monitor.mikroTikList" :key="index" class="form-check">
                                     <input :id="'mikrotik-' + index" v-model="selectedMikroTikIndex" :value="index" class="form-check-input" type="radio">
                                     <label class="form-check-label" :for="'mikrotik-' + index">
-                                        {{ mikrotik.ip }} - {{ mikrotik.username }}
+                                        {{ mikrotik._ip }} - {{ mikrotik._username }}
                                     </label>
                                 </div>
                             </div>
@@ -1010,6 +1010,7 @@ import TagsManager from "../components/TagsManager.vue";
 import { genSecret, isDev, MAX_INTERVAL_SECOND, MIN_INTERVAL_SECOND, sleep } from "../util.ts";
 import { hostNameRegexPattern } from "../util-frontend";
 import HiddenInput from "../components/HiddenInput.vue";
+import axios from "axios";
 
 const toast = useToast;
 
@@ -1446,8 +1447,12 @@ message HealthCheckResponse {
         },
     },
     mounted() {
+        console.log("Component mounted");
+        this.$root.getSocket().on("connect", () => {
+            console.log("Connected to socket");
+        });
         this.init();
-
+        this.fetchMikroTikList();
         let acceptedStatusCodeOptions = [
             "100-199",
             "200-299",
@@ -1770,29 +1775,56 @@ message HealthCheckResponse {
                 this.monitor.timeout = clampedValue;
             }
         },
-        saveMikroTikData(ip, username, password) {
-            if (!this.monitor.mikroTikList) {
-                this.monitor.mikroTikList = [];
-            }
-            this.monitor.mikroTikList.push({ ip,
-                username,
-                password });
-            return true;
-        },
-        async addMikroTik() {
+        addMikroTik() {
+            console.log("MikroTik data being sent: ", this.newMikroTik);
             if (this.newMikroTik.ip && this.newMikroTik.username && this.newMikroTik.password) {
                 try {
-                    const result = this.saveMikroTikData(this.newMikroTik.ip, this.newMikroTik.username, this.newMikroTik.password);
-                    if (result) {
-                        await this.fetchMikroTikList();
-                    } else {
-                        alert("Failed to add MikroTik");
-                    }
+                    console.log("Adding MikroTik: ", this.newMikroTik);
+                    console.log("Socket: ", this.$root.getSocket());
+                    this.$root.getSocket().emit("createMikrotik", this.newMikroTik, (response) => {
+                        console.log("Response from createMikroTik: ", response);
+                        if (response.ok) {
+                            console.log("MikroTik added successfully:", this.monitor.mikroTikList);
+                        } else {
+                            alert("Failed to add MikroTik: " + response.error);
+                        }
+                    });
                 } catch (error) {
+                    console.log("Error adding MikroTik:", error);
                     console.error("Error adding MikroTik:", error);
                 }
             } else {
-                alert(this.$t("Please fill in all MikroTik details"));
+                alert("Please fill in all MikroTik details");
+            }
+        },
+        async fetchMikroTikList() {
+            try {
+                this.$root.getSocket().emit("getMikrotik", (response) => {
+                    console.log("Response received:", response);
+                    if (response.ok) {
+                        this.monitor.mikroTikList = response.mikrotikList;
+                        console.log("MikroTik list updated:", this.monitor.mikroTikList);
+                    } else {
+                        alert("Failed to fetch MikroTik list: " + response.error);
+                    }
+                });
+
+            } catch (error) {
+                console.error("Failed to fetch MikroTik list:", error);
+            }
+        },
+        async deleteMikroTik(index) {
+            const mikrotik = this.monitor.mikroTikList[index];
+            try {
+                this.$root.getSocket().emit("deleteMikroTik", mikrotik.id, (response) => {
+                    if (response.ok) {
+                        this.monitor.mikroTikList.splice(index, 1); // Remove from the list
+                    } else {
+                        alert("Failed to delete MikroTik: " + response.error);
+                    }
+                });
+            } catch (error) {
+                console.error("Error deleting MikroTik:", error);
             }
         },
 
