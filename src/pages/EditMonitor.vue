@@ -674,20 +674,32 @@
                             <button class="btn btn-primary me-2" type="button" @click="$refs.notificationDialog.show()">
                                 {{ $t("Setup Notification") }}
                             </button>
-
+                            <!-- MikroTik Configurations -->
                             <div v-if="monitor.type === 'http-test'">
                                 <h2 class="mt-5 mb-2">{{ $t("MikroTik Authentication") }}</h2>
+
+                                <!-- Add MikroTik Section -->
                                 <div class="my-3">
                                     <label for="mikrotik-ip" class="form-label">{{ $t("Ip") }}</label>
-                                    <input id="mikrotik-ip" v-model="monitor.mikrotikIp" type="text" class="form-control" required>
+                                    <input id="mikrotik-ip" v-model="newMikroTik.ip" type="text" class="form-control" required>
                                 </div>
                                 <div class="my-3">
                                     <label for="mikrotik-username" class="form-label">{{ $t("Username") }}</label>
-                                    <input id="mikrotik-username" v-model="monitor.mikrotikUsername" type="text" class="form-control" required>
+                                    <input id="mikrotik-username" v-model="newMikroTik.username" type="text" class="form-control" required>
                                 </div>
                                 <div class="my-3">
                                     <label for="mikrotik-password" class="form-label">{{ $t("Password") }}</label>
-                                    <input id="mikrotik-password" v-model="monitor.mikrotikPassword" type="password" class="form-control" required>
+                                    <input id="mikrotik-password" v-model="newMikroTik.password" type="password" class="form-control" required>
+                                </div>
+                                <button type="button" class="btn btn-secondary" @click="addMikroTik">{{ $t("Add MikroTik") }}</button>
+
+                                <!-- List of MikroTik Configurations -->
+                                <h3 class="mt-4">{{ $t("Select MikroTik Configuration") }}</h3>
+                                <div v-for="(mikrotik, index) in monitor.mikroTikList" :key="index" class="form-check">
+                                    <input :id="'mikrotik-' + index" v-model="selectedMikroTikIndex" :value="index" class="form-check-input" type="radio">
+                                    <label class="form-check-label" :for="'mikrotik-' + index">
+                                        {{ mikrotik.ip }} - {{ mikrotik.username }}
+                                    </label>
                                 </div>
                             </div>
 
@@ -1062,10 +1074,17 @@ export default {
 
     data() {
         return {
+            newMikroTik: {
+                ip: "",
+                username: "",
+                password: ""
+            },
+            selectedMikroTikIndex: null,
             minInterval: MIN_INTERVAL_SECOND,
             maxInterval: MAX_INTERVAL_SECOND,
             processing: false,
             monitor: {
+                mikroTikList: [],
                 notificationIDList: {},
                 // Do not add default value here, please check init() method
             },
@@ -1680,6 +1699,13 @@ message HealthCheckResponse {
                     }
                 });
             }
+
+            if (this.selectedMikroTikIndex !== null) {
+                const selectedMikroTik = this.monitor.mikroTikList[this.selectedMikroTikIndex];
+                this.monitor.mikrotikIp = selectedMikroTik.ip;
+                this.monitor.mikrotikUsername = selectedMikroTik.username;
+                this.monitor.mikrotikPassword = selectedMikroTik.password;
+            }
         },
 
         async startParentGroupMonitor() {
@@ -1742,6 +1768,31 @@ message HealthCheckResponse {
             let clampedValue = this.clampTimeout(this.monitor.interval);
             if (this.monitor.timeout > clampedValue) {
                 this.monitor.timeout = clampedValue;
+            }
+        },
+        saveMikroTikData(ip, username, password) {
+            if (!this.monitor.mikroTikList) {
+                this.monitor.mikroTikList = [];
+            }
+            this.monitor.mikroTikList.push({ ip,
+                username,
+                password });
+            return true;
+        },
+        async addMikroTik() {
+            if (this.newMikroTik.ip && this.newMikroTik.username && this.newMikroTik.password) {
+                try {
+                    const result = this.saveMikroTikData(this.newMikroTik.ip, this.newMikroTik.username, this.newMikroTik.password);
+                    if (result) {
+                        await this.fetchMikroTikList();
+                    } else {
+                        alert("Failed to add MikroTik");
+                    }
+                } catch (error) {
+                    console.error("Error adding MikroTik:", error);
+                }
+            } else {
+                alert(this.$t("Please fill in all MikroTik details"));
             }
         },
 

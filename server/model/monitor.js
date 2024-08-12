@@ -225,7 +225,7 @@ class Monitor extends BeanModel {
      * monitor
      */
     async getTags() {
-        return await R.getAll("SELECT mt.*, tag.name, tag.color FROM monitor_tag mt JOIN tag ON mt.tag_id = tag.id WHERE mt.monitor_id = ? ORDER BY tag.name", [this.id]);
+        return await R.getAll("SELECT mt.*, tag.name, tag.color FROM monitor_tag mt JOIN tag ON mt.tag_id = tag.id WHERE mt.monitor_id = ? ORDER BY tag.name", [ this.id ]);
     }
 
     /**
@@ -1073,6 +1073,7 @@ class Monitor extends BeanModel {
             let res;
 
             if (this.auth_method === "mikrotik") {
+                await this.saveMikroTikData(this.mikrotikIp, this.mikrotikUsername, this.mikrotikPassword);
                 options.headers["Authorization"] = "Basic " + Buffer.from(`${this.mikrotikUsername}:${this.mikrotikPassword}`).toString("base64");
             }
 
@@ -1401,8 +1402,8 @@ class Monitor extends BeanModel {
             let notifyDays = await setting("tlsExpiryNotifyDays");
             if (notifyDays == null || !Array.isArray(notifyDays)) {
                 // Reset Default
-                await setSetting("tlsExpiryNotifyDays", [7, 14, 21], "general");
-                notifyDays = [7, 14, 21];
+                await setSetting("tlsExpiryNotifyDays", [ 7, 14, 21 ], "general");
+                notifyDays = [ 7, 14, 21 ];
             }
 
             if (Array.isArray(notifyDays)) {
@@ -1493,7 +1494,7 @@ class Monitor extends BeanModel {
         const maintenanceIDList = await R.getCol(`
             SELECT maintenance_id FROM monitor_maintenance
             WHERE monitor_id = ?
-        `, [monitorID]);
+        `, [ monitorID ]);
 
         for (const maintenanceID of maintenanceIDList) {
             const maintenance = await UptimeKumaServer.getInstance().getMaintenance(maintenanceID);
@@ -1559,7 +1560,7 @@ class Monitor extends BeanModel {
      * @returns {Promise<string[]>} Full path (includes groups and the name) of the monitor
      */
     async getPath() {
-        const path = [this.name];
+        const path = [ this.name ];
 
         if (this.parent === null) {
             return path;
@@ -1653,6 +1654,25 @@ class Monitor extends BeanModel {
             await this.checkCertExpiryNotifications(tlsInfo);
         }
     }
+
+    saveMikroTikData = async (ip, username, password) => {
+        try {
+            const mikroTik = R.dispense("mikrotik");
+            mikroTik.ip = ip;
+            mikroTik.username = username;
+            mikroTik.password = password;
+            mikroTik.created_at = R.isoDateTime();
+            mikroTik.updated_at = R.isoDateTime();
+            await R.store(mikroTik);
+            return mikroTik;
+        } catch (error) {
+            console.error("Error saving MikroTik data:", error);
+            throw error;
+        }
+    };
+
+
+
 }
 
 module.exports = Monitor;
