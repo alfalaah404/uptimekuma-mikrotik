@@ -1410,6 +1410,7 @@ message HealthCheckResponse {
 
         "$route.fullPath"() {
             this.init();
+            this.fetchMikroTikList();
         },
 
         "monitor.interval"(value, oldValue) {
@@ -1591,6 +1592,7 @@ message HealthCheckResponse {
                         }
 
                         this.monitor = res.monitor;
+                        this.fetchMikroTikList();
 
                         if (this.isClone) {
                             /*
