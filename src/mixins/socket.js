@@ -130,19 +130,21 @@ export default {
                     data: this.mikroTikList });
             });
 
-            socket.on("updateMikroTik", (updatedMikroTik, callback) => {
-                // Logic to update MikroTik configuration
-                // Example:
-                let index = this.mikroTikList.findIndex(item => item.ip === updatedMikroTik.ip);
-                if (index !== -1) {
-                    this.mikroTikList[index] = updatedMikroTik;
-                }
-                callback({ ok: true });
+            socket.on("updateMikrotik", (mikroTikData, callback) => {
+                console.log("Uptdating MikroTik configuration...");
+                // Kirim data ke server melalui REST API atau langsung lewat socket
+                socket.emit("updateMikrotik", mikroTikData, (response) => {
+                    if (response.ok) {
+                        console.log("MikroTik configuration saved successfully");
+                    }
+                    callback(response);
+                });
             });
 
-            socket.on("deleteMikroTik", (mikroTikIp, callback) => {
-                this.mikroTikList = this.mikroTikList.filter(item => item.ip !== mikroTikIp);
-                callback({ ok: true });
+            socket.on("deleteMikrotik", (id, callback) => {
+                socket.emit("deleteMikrotik", id, (response) => {
+                    callback(response);
+                });
             });
 
             socket.on("info", (info) => {

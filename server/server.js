@@ -493,10 +493,12 @@ let needSetup = false;
 
         // Update Mikrotik
         socket.on("updateMikrotik", async (data, callback) => {
+            console.log("Received data:", data);
+            console.log("callback", callback);
             try {
-                const { id, name, ip_address, username, password } = data;
+                const { _id, _ip, _username, _password } = data;
 
-                let mikrotik = await R.findOne("mikrotik", "id = ?", [ id ]);
+                let mikrotik = await R.findOne("mikrotik", "id = ?", [ _id ]);
 
                 if (!mikrotik) {
                     return callback({ ok: false,
@@ -504,9 +506,9 @@ let needSetup = false;
                 }
 
                 mikrotik.name = name || mikrotik.name;
-                mikrotik.ip_address = ip_address || mikrotik.ip_address;
-                mikrotik.username = username || mikrotik.username;
-                mikrotik.password = password || mikrotik.password;
+                mikrotik.ip = _ip || mikrotik._ip;
+                mikrotik.username = _username || mikrotik._username;
+                mikrotik.password = _password || mikrotik._password;
 
                 await R.store(mikrotik);
 
@@ -514,29 +516,47 @@ let needSetup = false;
                     message: "Mikrotik updated successfully" });
             } catch (error) {
                 console.error("Error updating Mikrotik:", error);
-                callback({ ok: false,
-                    error: error.message });
+
+                callback({
+                    ok: 6,
+                    error: error.message,
+                    data: data });
             }
         });
 
         // Delete Mikrotik
-        socket.on("deleteMikrotik", async (id, callback) => {
+        socket.on("deleteMikrotik", async (data, callback) => {
+            console.log("Received ID:", data);
             try {
+                const id = data.id;
+
+                if (typeof id !== "number" && typeof id !== "string") {
+                    return callback({
+                        ok: false,
+                        error: "Invalid ID format"
+                    });
+                }
+
                 let mikrotik = await R.findOne("mikrotik", "id = ?", [ id ]);
 
                 if (!mikrotik) {
-                    return callback({ ok: false,
-                        error: "Mikrotik not found" });
+                    return callback({
+                        ok: false,
+                        error: "Mikrotik not found"
+                    });
                 }
 
                 await R.trash(mikrotik);
 
-                callback({ ok: true,
-                    message: "Mikrotik deleted successfully" });
+                callback({
+                    ok: true,
+                    message: "Mikrotik deleted successfully"
+                });
             } catch (error) {
-                console.error("Error deleting Mikrotik:", error);
-                callback({ ok: false,
-                    error: error.message });
+                callback({
+                    ok: false,
+                    error: error.message,
+                });
             }
         });
 

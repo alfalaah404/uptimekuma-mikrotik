@@ -695,11 +695,68 @@
 
                                 <!-- List of MikroTik Configurations -->
                                 <h3 class="mt-4">{{ $t("Select MikroTik Configuration") }}</h3>
+                                <div class="form-check">
+                                    <input id="mikrotik-none" v-model="selectedMikroTikIndex" :value="null" class="form-check-input" type="radio">
+                                    <label class="form-check-label" for="mikrotik-none">
+                                        {{ $t("Tidak Tersambung Ke Mikrotik") }}
+                                    </label>
+                                </div>
                                 <div v-for="(mikrotik, index) in monitor.mikroTikList" :key="index" class="form-check">
                                     <input :id="'mikrotik-' + index" v-model="selectedMikroTikIndex" :value="index" class="form-check-input" type="radio">
                                     <label class="form-check-label" :for="'mikrotik-' + index">
                                         {{ mikrotik._ip }} - {{ mikrotik._username }}
+                                        <button class="btn btn-sm btn-danger ms-2" @click="prepareDeleteMikroTik(index)">Delete</button>
+                                        <button class="btn btn-sm btn-primary ms-2" @click="editMikroTik(index)">{{ $t("Edit") }}</button>
                                     </label>
+                                </div>
+
+                                <!-- Edit Modal -->
+                                <div ref="editModal" class="modal fade" tabindex="-1" data-bs-backdrop="static">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title">Edit MikroTik Configuration</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <div class="mb-3">
+                                                    <label for="ip" class="form-label">IP</label>
+                                                    <input id="ip" v-model="newMikroTik._ip" class="form-control" placeholder="IP" />
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label for="username" class="form-label">Username</label>
+                                                    <input id="username" v-model="newMikroTik._username" class="form-control" placeholder="Username" />
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label for="password" class="form-label">Password</label>
+                                                    <input id="password" v-model="newMikroTik._password" type="password" class="form-control" placeholder="Password" />
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                                <button type="button" class="btn btn-primary" @click="updateMikroTik">Save changes</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Delete Modal -->
+                                <div ref="deleteModal" class="modal fade" tabindex="-1" data-bs-backdrop="static">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title">Confirm Delete</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <p>Are you sure you want to delete this MikroTik configuration?</p>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                <button type="button" class="btn btn-danger" @click="confirmDeleteMikroTik">Delete</button>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -1010,7 +1067,8 @@ import TagsManager from "../components/TagsManager.vue";
 import { genSecret, isDev, MAX_INTERVAL_SECOND, MIN_INTERVAL_SECOND, sleep } from "../util.ts";
 import { hostNameRegexPattern } from "../util-frontend";
 import HiddenInput from "../components/HiddenInput.vue";
-import axios from "axios";
+import { Modal } from "bootstrap";
+import { nextTick } from "vue";
 
 const toast = useToast;
 
@@ -1075,6 +1133,9 @@ export default {
 
     data() {
         return {
+            isEditModalVisible: false,
+            editModalInstance: null,
+            deleteModalInstance: null,
             newMikroTik: {
                 ip: "",
                 username: "",
@@ -1447,11 +1508,14 @@ message HealthCheckResponse {
         },
     },
     mounted() {
-        console.log("Component mounted");
-        this.$root.getSocket().on("connect", () => {
-            console.log("Connected to socket");
-        });
         this.init();
+        nextTick(() => {
+            if (this.$refs.editModal) {
+                this.editModalInstance = new Modal(this.$refs.editModal);
+            } else {
+                console.error("Modal element not found");
+            }
+        });
         this.fetchMikroTikList();
         let acceptedStatusCodeOptions = [
             "100-199",
@@ -1813,19 +1877,81 @@ message HealthCheckResponse {
                 console.error("Failed to fetch MikroTik list:", error);
             }
         },
-        async deleteMikroTik(index) {
-            const mikrotik = this.monitor.mikroTikList[index];
-            try {
-                this.$root.getSocket().emit("deleteMikroTik", mikrotik.id, (response) => {
+        editMikroTik(index) {
+            this.newMikroTik = { ...this.monitor.mikroTikList[index] };
+            console.log("Editing MikroTik:", JSON.parse(JSON.stringify(this.newMikroTik)));  // Convert to a plain object for logging
+            this.selectedMikroTikIndex = index;
+
+            if (!this.editModalInstance && this.$refs.editModal) {
+                this.editModalInstance = new Modal(this.$refs.editModal);
+            }
+
+            if (this.editModalInstance) {
+                this.editModalInstance.show();
+            } else {
+                console.error("Modal instance not initialized");
+            }
+        },
+
+        closeEditModal() {
+            this.editModalInstance.hide();
+        },
+
+        // Mengkonfirmasi update MikroTik
+        async updateMikroTik() {
+            console.log("Updating MikroTik:", this.newMikroTik);
+            if (this.selectedMikroTikIndex !== null) {
+                try {
+                    this.$root.getSocket().emit("updateMikrotik", this.newMikroTik, (response) => {
+                        if (response.ok) {
+                            this.monitor.mikroTikList[this.selectedMikroTikIndex] = { ...this.newMikroTik };
+                            this.resetMikroTikForm();
+                        } else {
+                            console.log(response);
+                            alert("Failed to update MikroTik: " + response.error);
+                        }
+                    });
+                } catch (error) {
+                    console.error("Error updating MikroTik:", error);
+                }
+                this.editModalInstance.hide();
+            }
+        },
+
+        // Menyiapkan penghapusan MikroTik
+        prepareDeleteMikroTik(index) {
+            this.selectedMikroTikIndex = index;
+            const deleteModal = new Modal(this.$refs.deleteModal);
+            deleteModal.show();
+        },
+
+        // Mengkonfirmasi penghapusan MikroTik
+        confirmDeleteMikroTik() {
+            if (this.selectedMikroTikIndex !== null) {
+                const mikrotik = this.monitor.mikroTikList[this.selectedMikroTikIndex];
+                console.log("Deleting MikroTik:", mikrotik._id);
+                this.$root.getSocket().emit("deleteMikrotik", { id: mikrotik._id }, (response) => {
                     if (response.ok) {
-                        this.monitor.mikroTikList.splice(index, 1); // Remove from the list
+                        this.monitor.mikroTikList.splice(this.selectedMikroTikIndex, 1);
+                        this.selectedMikroTikIndex = null;
+                        const deleteModal = Modal.getInstance(this.$refs.deleteModal);
+                        deleteModal.hide();
                     } else {
+                        console.log(response);
                         alert("Failed to delete MikroTik: " + response.error);
                     }
                 });
-            } catch (error) {
-                console.error("Error deleting MikroTik:", error);
             }
+        },
+        closeDeleteModal() {
+            this.isDeleteModalVisible = false;
+        },
+
+        resetMikroTikForm() {
+            this.newMikroTik = { ip: "",
+                username: "",
+                password: "" };
+            this.selectedMikroTikIndex = null;
         },
 
     },
