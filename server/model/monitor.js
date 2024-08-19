@@ -60,15 +60,13 @@ class Monitor extends BeanModel {
             obj.tags = await this.getTags();
         }
 
-        if (certExpiry && (this.type === "http" || this.type === "keyword" || this.type === "json-query" || this.type === "http-test") && this.getURLProtocol() === "https:") {
+        if (certExpiry && (this.type === "http" || this.type === "keyword" || this.type === "json-query" || this.type === "ping-mikrotik") && this.getURLProtocol() === "https:") {
             const { certExpiryDaysRemaining, validCert } = await this.getCertExpiry(this.id);
             obj.certExpiryDaysRemaining = certExpiryDaysRemaining;
             obj.validCert = validCert;
         }
 
-        obj.mikrotikUsername = this.mikrotikUsername;
-        obj.mikrotikPassword = this.mikrotikPassword;
-        obj.mikrotikIp = this.mikrotikIp;
+        obj.mikrotik_id = this.mikrotikId;
 
         return obj;
     }
@@ -167,9 +165,7 @@ class Monitor extends BeanModel {
             snmpOid: this.snmpOid,
             jsonPathOperator: this.jsonPathOperator,
             snmpVersion: this.snmpVersion,
-            mikrotikUsername: this.mikrotikUsername,
-            mikrotikPassword: this.mikrotikPassword,
-            mikrotikIp: this.mikrotikIp,
+            mikrotik_id: this.mikrotikId,
         };
 
         if (includeSensitiveData) {
@@ -199,9 +195,7 @@ class Monitor extends BeanModel {
                 tlsCert: this.tlsCert,
                 tlsKey: this.tlsKey,
                 kafkaProducerSaslOptions: JSON.parse(this.kafkaProducerSaslOptions),
-                mikrotikUsername: this.mikrotikUsername,
-                mikrotikPassword: this.mikrotikPassword,
-                mikrotikIp: this.mikrotikIp,
+                mikrotik_id: this.mikrotikId,
             };
         }
 
@@ -338,6 +332,26 @@ class Monitor extends BeanModel {
     }
 
     /**
+     * @param mikrotikId
+     */
+    getMikrotikAuth(mikrotikId) {
+        return R.findOne("mikrotik", "id = ?", [ mikrotikId ]);
+    }
+
+    /**
+     * @param timeString
+     */
+    convertTimeStringToMilliseconds(timeString) {
+        const match = timeString.match(/(\d+)ms(\d+)us/);
+        if (match) {
+            const milliseconds = parseInt(match[1], 10);
+            const microseconds = parseInt(match[2], 10);
+            return milliseconds + microseconds / 1000;
+        }
+        return null;
+    }
+
+    /**
      * Start monitor
      * @param {Server} io Socket server instance
      * @returns {Promise<void>}
@@ -431,23 +445,40 @@ class Monitor extends BeanModel {
                         bean.msg = "Group empty";
                     }
 
-                } else if (this.type === "http-test") {
-                    const startTime = dayjs().valueOf();
-                    const hostname = this.url.replace(/(^\w+:|^)\/\//, ""); // Removes http:// or https://
-                    const response = await axios.post(`http://${this.mikrotikIp}/rest/tool/ping`, {
+                } else if (this.type === "ping-mikrotik") {
+
+                    // Fetch Mikrotik auth details based on mikrotik_id
+                    const mikrotikAuth = await this.getMikrotikAuth(this.mikrotikId);
+
+                    if (!mikrotikAuth) {
+                        throw new Error("Mikrotik authentication details not found");
+                    }
+
+                    const hostname = this.url.replace(/(^\w+:|^)\/\//, "");
+                    const response = await axios.post(`http://${mikrotikAuth.ip}/rest/tool/ping`, {
                         address: hostname,
                         count: 1
                     }, {
                         auth: {
-                            username: this.mikrotikUsername,
-                            password: this.mikrotikPassword
+                            username: mikrotikAuth.username,
+                            password: mikrotikAuth.password
                         },
                         timeout: this.timeout * 1000
                     });
+
                     if (response.status === 200) {
-                        bean.status = UP;
-                        bean.msg = `Ping successful: ${JSON.stringify(response.data)} ${hostname}`;
-                        bean.ping = dayjs().valueOf() - startTime;
+                        // Extract the time from the Mikrotik response
+                        const timeString = response.data[0]?.time || null; // Assuming 'time' is the key in response
+
+                        if (timeString) {
+                            // Convert the time from "21ms878us" to milliseconds
+                            const timeInMs = this.convertTimeStringToMilliseconds(timeString);
+                            bean.status = UP;
+                            bean.msg = `Ping successful: ${JSON.stringify(response.data)} ${hostname}`;
+                            bean.ping = timeInMs; // Use the converted time in milliseconds
+                        } else {
+                            throw new Error(`Ping successful but time not found in response: ${JSON.stringify(response.data)}`);
+                        }
                     } else {
                         throw new Error(`Ping failed: ${response.status} - ${response.statusText} - ${hostname}`);
                     }
@@ -602,7 +633,7 @@ class Monitor extends BeanModel {
                     if (process.env.UPTIME_KUMA_LOG_RESPONSE_BODY_MONITOR_ID === this.id) {
                         log.info("monitor", res.data);
                     }
-                    if (this.type === "http" || this.type === "http-test") {
+                    if (this.type === "http" || this.type === "ping-mikrotik") {
                         bean.status = UP;
                     } else if (this.type === "keyword") {
 
@@ -1654,25 +1685,6 @@ class Monitor extends BeanModel {
             await this.checkCertExpiryNotifications(tlsInfo);
         }
     }
-
-    saveMikroTikData = async (ip, username, password) => {
-        try {
-            const mikroTik = R.dispense("mikrotik");
-            mikroTik.ip = ip;
-            mikroTik.username = username;
-            mikroTik.password = password;
-            mikroTik.created_at = R.isoDateTime();
-            mikroTik.updated_at = R.isoDateTime();
-            await R.store(mikroTik);
-            return mikroTik;
-        } catch (error) {
-            console.error("Error saving MikroTik data:", error);
-            throw error;
-        }
-    };
-
-
-
 }
 
 module.exports = Monitor;

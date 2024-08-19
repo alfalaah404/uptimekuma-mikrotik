@@ -18,8 +18,8 @@
                                         <option value="http">
                                             HTTP(s)
                                         </option>
-                                        <option value="http-test">
-                                            HTTP(s) Test
+                                        <option value="ping-mikrotik">
+                                            Ping Mikrotik
                                         </option>
                                         <option value="port">
                                             TCP Port
@@ -106,7 +106,7 @@
                             </div>
 
                             <!-- URL -->
-                            <div v-if="monitor.type === 'http' || monitor.type === 'keyword' || monitor.type === 'json-query' || monitor.type === 'real-browser' || monitor.type === 'http-test' " class="my-3">
+                            <div v-if="monitor.type === 'http' || monitor.type === 'keyword' || monitor.type === 'json-query' || monitor.type === 'real-browser' || monitor.type === 'ping-mikrotik' " class="my-3">
                                 <label for="url" class="form-label">{{ $t("URL") }}</label>
                                 <input id="url" v-model="monitor.url" type="url" class="form-control" pattern="https?://.+" required>
                             </div>
@@ -535,7 +535,7 @@
                             </div>
 
                             <!-- Timeout: HTTP / Keyword / SNMP only -->
-                            <div v-if="monitor.type === 'http' || monitor.type === 'keyword' || monitor.type === 'json-query' || monitor.type === 'snmp' || monitor.type === 'http-test'" class="my-3">
+                            <div v-if="monitor.type === 'http' || monitor.type === 'keyword' || monitor.type === 'json-query' || monitor.type === 'snmp' || monitor.type === 'ping-mikrotik'" class="my-3">
                                 <label for="timeout" class="form-label">{{ $t("Request Timeout") }} ({{ $t("timeoutAfter", [ monitor.timeout || clampTimeout(monitor.interval) ]) }})</label>
                                 <input id="timeout" v-model="monitor.timeout" type="number" class="form-control" required min="0" step="0.1">
                             </div>
@@ -551,7 +551,7 @@
 
                             <h2 v-if="monitor.type !== 'push'" class="mt-5 mb-2">{{ $t("Advanced") }}</h2>
 
-                            <div v-if="monitor.type === 'http' || monitor.type === 'keyword' || monitor.type === 'json-query' || monitor.type === 'http-test' " class="my-3 form-check">
+                            <div v-if="monitor.type === 'http' || monitor.type === 'keyword' || monitor.type === 'json-query' || monitor.type === 'ping-mikrotik' " class="my-3 form-check">
                                 <input id="expiry-notification" v-model="monitor.expiryNotification" class="form-check-input" type="checkbox">
                                 <label class="form-check-label" for="expiry-notification">
                                     {{ $t("Certificate Expiry Notification") }}
@@ -560,7 +560,7 @@
                                 </div>
                             </div>
 
-                            <div v-if="monitor.type === 'http' || monitor.type === 'keyword' || monitor.type === 'json-query' || monitor.type === 'redis' || monitor.type === 'http-test' " class="my-3 form-check">
+                            <div v-if="monitor.type === 'http' || monitor.type === 'keyword' || monitor.type === 'json-query' || monitor.type === 'redis' || monitor.type === 'ping-mikrotik' " class="my-3 form-check">
                                 <input id="ignore-tls" v-model="monitor.ignoreTls" class="form-check-input" type="checkbox" value="">
                                 <label class="form-check-label" for="ignore-tls">
                                     {{ monitor.type === "redis" ? $t("ignoreTLSErrorGeneral") : $t("ignoreTLSError") }}
@@ -594,7 +594,7 @@
                             </div>
 
                             <!-- HTTP / Keyword only -->
-                            <template v-if="monitor.type === 'http' || monitor.type === 'keyword' || monitor.type === 'json-query' || monitor.type === 'grpc-keyword' || monitor.type === 'http-test' ">
+                            <template v-if="monitor.type === 'http' || monitor.type === 'keyword' || monitor.type === 'json-query' || monitor.type === 'grpc-keyword' || monitor.type === 'ping-mikrotik' ">
                                 <div class="my-3">
                                     <label for="maxRedirects" class="form-label">{{ $t("Max. Redirects") }}</label>
                                     <input id="maxRedirects" v-model="monitor.maxredirects" type="number" class="form-control" required min="0" step="1">
@@ -675,35 +675,35 @@
                                 {{ $t("Setup Notification") }}
                             </button>
 
-                            <div v-if="monitor.type === 'http-test'">
+                            <div v-if="monitor.type === 'ping-mikrotik'">
                                 <h2 class="mt-5 mb-2">{{ $t("MikroTik Authentication") }}</h2>
 
                                 <!-- Add MikroTik Section -->
                                 <div class="my-3">
-                                    <label for="mikrotik-ip" class="form-label">{{ $t("Ip") }}</label>
-                                    <input id="mikrotik-ip" v-model="newMikroTik.ip" type="text" class="form-control" required>
+                                    <label for="mikrotik-ip" class="form-label">{{ $t("IP:Port (Port optional)") }}</label>
+                                    <input id="mikrotik-ip" v-model="newMikroTik.ip" type="text" class="form-control">
                                 </div>
                                 <div class="my-3">
                                     <label for="mikrotik-username" class="form-label">{{ $t("Username") }}</label>
-                                    <input id="mikrotik-username" v-model="newMikroTik.username" type="text" class="form-control" required>
+                                    <input id="mikrotik-username" v-model="newMikroTik.username" type="text" class="form-control">
                                 </div>
                                 <div class="my-3">
                                     <label for="mikrotik-password" class="form-label">{{ $t("Password") }}</label>
-                                    <input id="mikrotik-password" v-model="newMikroTik.password" type="password" class="form-control" required>
+                                    <input id="mikrotik-password" v-model="newMikroTik.password" type="password" class="form-control">
                                 </div>
                                 <button type="button" class="btn btn-secondary" @click="addMikroTik">{{ $t("Add MikroTik") }}</button>
 
-                                <!-- List of MikroTik Configurations -->
                                 <h3 class="mt-4">{{ $t("Select MikroTik Configuration") }}</h3>
                                 <div class="form-check">
-                                    <input id="mikrotik-none" v-model="selectedMikroTikIndex" :value="null" class="form-check-input" type="radio">
+                                    <input id="mikrotik-none" v-model="monitor.mikrotik_id" :value="null" class="form-check-input" type="radio">
                                     <label class="form-check-label" for="mikrotik-none">
                                         {{ $t("Tidak Tersambung Ke Mikrotik") }}
                                     </label>
                                 </div>
-                                <div v-for="(mikrotik, index) in monitor.mikroTikList" :key="index" class="form-check">
-                                    <input :id="'mikrotik-' + index" v-model="selectedMikroTikIndex" :value="index" class="form-check-input" type="radio">
-                                    <label class="form-check-label" :for="'mikrotik-' + index">
+
+                                <div v-for="(mikrotik, index) in monitor.mikroTikList" :key="mikrotik._id" class="form-check">
+                                    <input :id="'mikrotik-' + mikrotik._id" v-model="monitor.mikrotik_id" :value="mikrotik._id" class="form-check-input" type="radio">
+                                    <label class="form-check-label" :for="'mikrotik-' + mikrotik._id">
                                         {{ mikrotik._ip }} - {{ mikrotik._username }}
                                         <button class="btn btn-sm btn-danger ms-2" @click="prepareDeleteMikroTik(index)">Delete</button>
                                         <button class="btn btn-sm btn-primary ms-2" @click="editMikroTik(index)">{{ $t("Edit") }}</button>
@@ -714,28 +714,31 @@
                                 <div ref="editModal" class="modal fade" tabindex="-1" data-bs-backdrop="static">
                                     <div class="modal-dialog">
                                         <div class="modal-content">
-                                            <div class="modal-header">
-                                                <h5 class="modal-title">Edit MikroTik Configuration</h5>
-                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                            </div>
-                                            <div class="modal-body">
-                                                <div class="mb-3">
-                                                    <label for="ip" class="form-label">IP</label>
-                                                    <input id="ip" v-model="newMikroTik._ip" class="form-control" placeholder="IP" />
+                                            <form @submit.prevent="updateMikroTik">
+                                                <!-- Prevent form submission -->
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title">Edit MikroTik Configuration</h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                                 </div>
-                                                <div class="mb-3">
-                                                    <label for="username" class="form-label">Username</label>
-                                                    <input id="username" v-model="newMikroTik._username" class="form-control" placeholder="Username" />
+                                                <div class="modal-body">
+                                                    <div class="mb-3">
+                                                        <label for="ip" class="form-label">IP</label>
+                                                        <input id="ip" v-model="newMikroTik._ip" class="form-control" placeholder="IP" />
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label for="username" class="form-label">Username</label>
+                                                        <input id="username" v-model="newMikroTik._username" class="form-control" placeholder="Username" />
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label for="password" class="form-label">Password</label>
+                                                        <input id="password" v-model="newMikroTik._password" type="password" class="form-control" placeholder="Password" />
+                                                    </div>
                                                 </div>
-                                                <div class="mb-3">
-                                                    <label for="password" class="form-label">Password</label>
-                                                    <input id="password" v-model="newMikroTik._password" type="password" class="form-control" placeholder="Password" />
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                                    <button type="submit" class="btn btn-primary">Save changes</button> <!-- Separate save button -->
                                                 </div>
-                                            </div>
-                                            <div class="modal-footer">
-                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                                                <button type="button" class="btn btn-primary" @click="updateMikroTik">Save changes</button>
-                                            </div>
+                                            </form>
                                         </div>
                                     </div>
                                 </div>
@@ -1112,9 +1115,7 @@ const monitorDefaults = {
     kafkaProducerAllowAutoTopicCreation: false,
     gamedigGivenPortOnly: true,
     remote_browser: null,
-    mikrotikIp: "",
-    mikrotikUsername: "",
-    mikrotikPassword: ""
+    mikrotikId: "",
 };
 
 export default {
@@ -1146,7 +1147,6 @@ export default {
             maxInterval: MAX_INTERVAL_SECOND,
             processing: false,
             monitor: {
-                mikroTikList: [],
                 notificationIDList: {},
                 // Do not add default value here, please check init() method
             },
@@ -1562,7 +1562,7 @@ message HealthCheckResponse {
          */
         init() {
             if (this.isAdd) {
-
+                console.log("monitorDefaults", monitorDefaults);
                 this.monitor = {
                     ...monitorDefaults
                 };
@@ -1696,7 +1696,7 @@ message HealthCheckResponse {
                 this.monitor.body = JSON.stringify(JSON.parse(this.monitor.body), null, 4);
             }
 
-            const monitorTypesWithEncodingAllowed = [ "http", "keyword", "json-query", "http-test" ];
+            const monitorTypesWithEncodingAllowed = [ "http", "keyword", "json-query", "ping-mikrotik" ];
             if (this.monitor.type && !monitorTypesWithEncodingAllowed.includes(this.monitor.type)) {
                 this.monitor.httpBodyEncoding = null;
             }
@@ -1737,9 +1737,10 @@ message HealthCheckResponse {
                 }
             }
 
+            delete this.monitor.mikroTikList;
             if (this.isAdd || this.isClone) {
                 this.$root.add(this.monitor, async (res) => {
-
+                    console.log("Response from addMonitor: ", this.monitorData);
                     if (res.ok) {
                         await this.$refs.tagsManager.submit(res.monitorID);
 
@@ -1758,7 +1759,7 @@ message HealthCheckResponse {
                 });
             } else {
                 await this.$refs.tagsManager.submit(this.monitor.id);
-
+                console.log("Monitor data being sent: ", this.monitor);
                 this.$root.getSocket().emit("editMonitor", this.monitor, (res) => {
                     this.processing = false;
                     this.$root.toastRes(res);
@@ -1773,10 +1774,9 @@ message HealthCheckResponse {
 
             if (this.selectedMikroTikIndex !== null) {
                 const selectedMikroTik = this.monitor.mikroTikList[this.selectedMikroTikIndex];
-                this.monitor.mikrotikIp = selectedMikroTik.ip;
-                this.monitor.mikrotikUsername = selectedMikroTik.username;
-                this.monitor.mikrotikPassword = selectedMikroTik.password;
+                this.monitor.mikrotikId = selectedMikroTik._id;
             }
+
         },
 
         async startParentGroupMonitor() {
@@ -1850,6 +1850,8 @@ message HealthCheckResponse {
                     this.$root.getSocket().emit("createMikrotik", this.newMikroTik, (response) => {
                         console.log("Response from createMikroTik: ", response);
                         if (response.ok) {
+                            this.fetchMikroTikList();
+                            this.resetMikroTikForm();
                             console.log("MikroTik added successfully:", this.monitor.mikroTikList);
                         } else {
                             alert("Failed to add MikroTik: " + response.error);

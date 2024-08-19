@@ -505,7 +505,6 @@ let needSetup = false;
                         error: "Mikrotik not found" });
                 }
 
-                mikrotik.name = name || mikrotik.name;
                 mikrotik.ip = _ip || mikrotik._ip;
                 mikrotik.username = _username || mikrotik._username;
                 mikrotik.password = _password || mikrotik._password;
@@ -902,6 +901,7 @@ let needSetup = false;
                     await startMonitor(socket.userID, bean.id);
                 }
 
+                log.debug("monitor", `Monitor object: ${JSON.stringify(monitor)} message: Monitor added successfully`);
                 log.info("monitor", `Added Monitor: ${monitor.id} User ID: ${socket.userID}`);
 
                 callback({
@@ -913,6 +913,7 @@ let needSetup = false;
 
             } catch (e) {
 
+                log.debug("monitor", `Monitor object1: ${monitor} message: ${e.message}`);
                 log.error("monitor", `Error adding Monitor: ${monitor.id} User ID: ${socket.userID}`);
 
                 callback({
@@ -1036,9 +1037,7 @@ let needSetup = false;
                 bean.snmpOid = monitor.snmpOid;
                 bean.jsonPathOperator = monitor.jsonPathOperator;
                 bean.timeout = monitor.timeout;
-                bean.mikrotikIp = monitor.mikrotikIp;
-                bean.mikrotikUsername = monitor.mikrotikUsername;
-                bean.mikrotikPassword = monitor.mikrotikPassword;
+                bean.mikrotik_id = monitor.mikrotik_id;
                 bean.validate();
 
                 await R.store(bean);
