@@ -24,6 +24,7 @@ const { CookieJar } = require("tough-cookie");
 const { HttpsCookieAgent } = require("http-cookie-agent/http");
 const https = require("https");
 const http = require("http");
+const RouterOSClient = require("node-routeros").RouterOSAPI;
 
 const rootCertificates = rootCertificatesFingerprints();
 
@@ -342,12 +343,21 @@ class Monitor extends BeanModel {
      * @param timeString
      */
     convertTimeStringToMilliseconds(timeString) {
-        const match = timeString.match(/(\d+)ms(\d+)us/);
+        // Cek format milidetik dan mikrodetik (misal: 21ms765us)
+        let match = timeString.match(/(\d+)ms(\d+)us/);
         if (match) {
             const milliseconds = parseInt(match[1], 10);
             const microseconds = parseInt(match[2], 10);
             return milliseconds + microseconds / 1000;
         }
+
+        // Cek format hanya milidetik (misal: 24ms)
+        match = timeString.match(/(\d+)ms/);
+        if (match) {
+            return parseInt(match[1], 10);
+        }
+
+        // Jika tidak cocok dengan format yang diketahui, kembalikan null
         return null;
     }
 
@@ -454,33 +464,47 @@ class Monitor extends BeanModel {
                         throw new Error("Mikrotik authentication details not found");
                     }
 
-                    const hostname = this.url.replace(/(^\w+:|^)\/\//, "");
-                    const response = await axios.post(`http://${mikrotikAuth.ip}/rest/tool/ping`, {
-                        address: hostname,
-                        count: 1
-                    }, {
-                        auth: {
-                            username: mikrotikAuth.username,
-                            password: mikrotikAuth.password
-                        },
-                        timeout: this.timeout * 1000
+                    const [ host, port ] = mikrotikAuth.ip.split(":");
+
+                    const client = new RouterOSClient({
+                        host: host,
+                        user: mikrotikAuth.username,
+                        password: mikrotikAuth.password,
+                        port: port || 8728,
                     });
 
-                    if (response.status === 200) {
-                        // Extract the time from the Mikrotik response
-                        const timeString = response.data[0]?.time || null; // Assuming 'time' is the key in response
+                    try {
+                        await client.connect();
+
+                        console.log("Successfully authenticated and connected to Mikrotik:", host);
+
+                        const packetSize = this.packet_size;
+
+                        const pingResponse = await client.write("/ping", [
+                            `=address=${this.hostname}`,
+                            "=count=1",
+                            `=size=${packetSize}`,
+                        ]);
+
+                        log.info("Ping response:", pingResponse);
+
+                        // Extract the time string
+                        const firstResponse = pingResponse[0]; // Access the first object in the array
+                        const timeString = firstResponse?.time || null;
 
                         if (timeString) {
-                            // Convert the time from "21ms878us" to milliseconds
                             const timeInMs = this.convertTimeStringToMilliseconds(timeString);
                             bean.status = UP;
-                            bean.msg = `Ping successful: ${JSON.stringify(response.data)} ${hostname}`;
-                            bean.ping = timeInMs; // Use the converted time in milliseconds
+                            bean.msg = `Ping successful: ${this.hostname}`;
+                            bean.ping = timeInMs;
                         } else {
-                            throw new Error(`Ping successful but time not found in response: ${JSON.stringify(response.data)}`);
+                            throw new Error(`Ping successful but time not found in response: ${JSON.stringify(pingResponse)}`);
                         }
-                    } else {
-                        throw new Error(`Ping failed: ${response.status} - ${response.statusText} - ${hostname}`);
+
+                        await client.close();
+                    } catch (error) {
+                        console.error("Connection or ping failed:", error);
+                        throw new Error(`Ping failed: ${error.message} - ${this.hostname}`);
                     }
                 } else if (this.type === "http" || this.type === "keyword" || this.type === "json-query") {
                     // Do not do any queries/high loading things before the "bean.ping"
