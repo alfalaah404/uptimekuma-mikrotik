@@ -1093,7 +1093,7 @@ const monitorDefaults = {
     packetSize: 56,
     expiryNotification: false,
     maxredirects: 10,
-    accepted_statuscodes: [ "200-299" ],
+    accepted_statuscodes: ["200-299"],
     dns_resolve_type: "A",
     dns_resolve_server: "1.1.1.1",
     docker_container: "",
@@ -1115,8 +1115,11 @@ const monitorDefaults = {
     kafkaProducerAllowAutoTopicCreation: false,
     gamedigGivenPortOnly: true,
     remote_browser: null,
-    mikrotikId: "",
 };
+
+if (monitorDefaults.type === "ping-mikrotik") {
+    monitorDefaults.mikrotikId = "";
+}
 
 export default {
     components: {
