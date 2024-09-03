@@ -24,6 +24,7 @@ const { CookieJar } = require("tough-cookie");
 const { HttpsCookieAgent } = require("http-cookie-agent/http");
 const https = require("https");
 const http = require("http");
+const RouterOSClient = require("node-routeros").RouterOSAPI;
 
 const rootCertificates = rootCertificatesFingerprints();
 
@@ -60,11 +61,13 @@ class Monitor extends BeanModel {
             obj.tags = await this.getTags();
         }
 
-        if (certExpiry && (this.type === "http" || this.type === "keyword" || this.type === "json-query") && this.getURLProtocol() === "https:") {
+        if (certExpiry && (this.type === "http" || this.type === "keyword" || this.type === "json-query" || this.type === "ping-mikrotik") && this.getURLProtocol() === "https:") {
             const { certExpiryDaysRemaining, validCert } = await this.getCertExpiry(this.id);
             obj.certExpiryDaysRemaining = certExpiryDaysRemaining;
             obj.validCert = validCert;
         }
+
+        obj.mikrotik_id = this.mikrotikId;
 
         return obj;
     }
@@ -163,6 +166,7 @@ class Monitor extends BeanModel {
             snmpOid: this.snmpOid,
             jsonPathOperator: this.jsonPathOperator,
             snmpVersion: this.snmpVersion,
+            mikrotik_id: this.mikrotikId,
         };
 
         if (includeSensitiveData) {
@@ -192,6 +196,7 @@ class Monitor extends BeanModel {
                 tlsCert: this.tlsCert,
                 tlsKey: this.tlsKey,
                 kafkaProducerSaslOptions: JSON.parse(this.kafkaProducerSaslOptions),
+                mikrotik_id: this.mikrotikId,
             };
         }
 
@@ -328,6 +333,35 @@ class Monitor extends BeanModel {
     }
 
     /**
+     * @param mikrotikId
+     */
+    getMikrotikAuth(mikrotikId) {
+        return R.findOne("mikrotik", "id = ?", [ mikrotikId ]);
+    }
+
+    /**
+     * @param timeString
+     */
+    convertTimeStringToMilliseconds(timeString) {
+        // Cek format milidetik dan mikrodetik (misal: 21ms765us)
+        let match = timeString.match(/(\d+)ms(\d+)us/);
+        if (match) {
+            const milliseconds = parseInt(match[1], 10);
+            const microseconds = parseInt(match[2], 10);
+            return milliseconds + microseconds / 1000;
+        }
+
+        // Cek format hanya milidetik (misal: 24ms)
+        match = timeString.match(/(\d+)ms/);
+        if (match) {
+            return parseInt(match[1], 10);
+        }
+
+        // Jika tidak cocok dengan format yang diketahui, kembalikan null
+        return null;
+    }
+
+    /**
      * Start monitor
      * @param {Server} io Socket server instance
      * @returns {Promise<void>}
@@ -342,7 +376,7 @@ class Monitor extends BeanModel {
 
             let beatInterval = this.interval;
 
-            if (! beatInterval) {
+            if (!beatInterval) {
                 beatInterval = 1;
             }
 
@@ -421,6 +455,57 @@ class Monitor extends BeanModel {
                         bean.msg = "Group empty";
                     }
 
+                } else if (this.type === "ping-mikrotik") {
+
+                    // Fetch Mikrotik auth details based on mikrotik_id
+                    const mikrotikAuth = await this.getMikrotikAuth(this.mikrotikId);
+
+                    if (!mikrotikAuth) {
+                        throw new Error("Mikrotik authentication details not found");
+                    }
+
+                    const [ host, port ] = mikrotikAuth.ip.split(":");
+
+                    const client = new RouterOSClient({
+                        host: host,
+                        user: mikrotikAuth.username,
+                        password: mikrotikAuth.password,
+                        port: port || 8728,
+                    });
+
+                    try {
+                        await client.connect();
+
+                        console.log("Successfully authenticated and connected to Mikrotik:", host);
+
+                        const packetSize = this.packet_size;
+
+                        const pingResponse = await client.write("/ping", [
+                            `=address=${this.hostname}`,
+                            "=count=1",
+                            `=size=${packetSize}`,
+                        ]);
+
+                        log.info("Ping response:", pingResponse);
+
+                        // Extract the time string
+                        const firstResponse = pingResponse[0]; // Access the first object in the array
+                        const timeString = firstResponse?.time || null;
+
+                        if (timeString) {
+                            const timeInMs = this.convertTimeStringToMilliseconds(timeString);
+                            bean.status = UP;
+                            bean.msg = `Ping successful: ${this.hostname}`;
+                            bean.ping = timeInMs;
+                        } else {
+                            throw new Error(`Ping successful but time not found in response: ${JSON.stringify(pingResponse)}`);
+                        }
+
+                        await client.close();
+                    } catch (error) {
+                        console.error("Connection or ping failed:", error);
+                        throw new Error(`Ping failed: ${error.message} - ${this.hostname}`);
+                    }
                 } else if (this.type === "http" || this.type === "keyword" || this.type === "json-query") {
                     // Do not do any queries/high loading things before the "bean.ping"
                     let startTime = dayjs().valueOf();
@@ -572,8 +657,7 @@ class Monitor extends BeanModel {
                     if (process.env.UPTIME_KUMA_LOG_RESPONSE_BODY_MONITOR_ID === this.id) {
                         log.info("monitor", res.data);
                     }
-
-                    if (this.type === "http") {
+                    if (this.type === "http" || this.type === "ping-mikrotik") {
                         bean.status = UP;
                     } else if (this.type === "keyword") {
 
@@ -875,6 +959,8 @@ class Monitor extends BeanModel {
                     bean.ping = dayjs().valueOf() - startTime;
 
                 } else {
+                    log.info("monitor", `[${this.type}] Unknown Monitor Type`);
+                    print(`Unknown Monitor Type: ${this.type}`);
                     throw new Error("Unknown Monitor Type");
                 }
 
@@ -962,7 +1048,7 @@ class Monitor extends BeanModel {
             } else if (bean.status === MAINTENANCE) {
                 log.warn("monitor", `Monitor #${this.id} '${this.name}': Under Maintenance | Type: ${this.type}`);
             } else {
-                log.warn("monitor", `Monitor #${this.id} '${this.name}': Failing: ${bean.msg} | Interval: ${beatInterval} seconds | Type: ${this.type} | Down Count: ${bean.downCount} | Resend Interval: ${this.resendInterval}`);
+                log.warn("monitor", `Monitor #${this.id} '${this.name}': Failing: ${bean.msg} | Interval: ${beatInterval} seconds | Type: ${this.type} | Down Count: ${bean.downCount} | Resend Interval: ${this.resendInterval} | Bean Status: ${bean.status}`);
             }
 
             // Calculate uptime
@@ -984,7 +1070,7 @@ class Monitor extends BeanModel {
 
             previousBeat = bean;
 
-            if (! this.isStop) {
+            if (!this.isStop) {
                 log.debug("monitor", `[${this.name}] SetTimeout for next check.`);
 
                 let intervalRemainingMs = Math.max(
@@ -1013,7 +1099,7 @@ class Monitor extends BeanModel {
                 UptimeKumaServer.errorLog(e, false);
                 log.error("monitor", "Please report to https://github.com/louislam/uptime-kuma/issues");
 
-                if (! this.isStop) {
+                if (!this.isStop) {
                     log.info("monitor", "Try to restart the monitor");
                     this.heartbeatInterval = setTimeout(safeBeat, this.interval * 1000);
                 }
@@ -1040,6 +1126,12 @@ class Monitor extends BeanModel {
     async makeAxiosRequest(options, finalCall = false) {
         try {
             let res;
+
+            if (this.auth_method === "mikrotik") {
+                await this.saveMikroTikData(this.mikrotikIp, this.mikrotikUsername, this.mikrotikPassword);
+                options.headers["Authorization"] = "Basic " + Buffer.from(`${this.mikrotikUsername}:${this.mikrotikPassword}`).toString("base64");
+            }
+
             if (this.auth_method === "ntlm") {
                 options.httpsAgent.keepAlive = true;
 
@@ -1065,7 +1157,8 @@ class Monitor extends BeanModel {
                 let oauth2AuthHeader = {
                     "Authorization": this.oauthAccessToken.token_type + " " + this.oauthAccessToken.access_token,
                 };
-                options.headers = { ...(options.headers),
+                options.headers = {
+                    ...(options.headers),
                     ...(oauth2AuthHeader)
                 };
 
@@ -1355,7 +1448,7 @@ class Monitor extends BeanModel {
         if (tlsInfoObject && tlsInfoObject.certInfo && tlsInfoObject.certInfo.daysRemaining) {
             const notificationList = await Monitor.getNotificationList(this);
 
-            if (! notificationList.length > 0) {
+            if (!notificationList.length > 0) {
                 // fail fast. If no notification is set, all the following checks can be skipped.
                 log.debug("monitor", "No notification, no need to send cert notification");
                 return;

@@ -18,6 +18,9 @@
                                         <option value="http">
                                             HTTP(s)
                                         </option>
+                                        <option value="ping-mikrotik">
+                                            Ping Mikrotik
+                                        </option>
                                         <option value="port">
                                             TCP Port
                                         </option>
@@ -235,7 +238,7 @@
 
                             <!-- Hostname -->
                             <!-- TCP Port / Ping / DNS / Steam / MQTT / Radius / Tailscale Ping / SNMP only -->
-                            <div v-if="monitor.type === 'port' || monitor.type === 'ping' || monitor.type === 'dns' || monitor.type === 'steam' || monitor.type === 'gamedig' || monitor.type === 'mqtt' || monitor.type === 'radius' || monitor.type === 'tailscale-ping' || monitor.type === 'snmp'" class="my-3">
+                            <div v-if="monitor.type === 'port' || monitor.type === 'ping' || monitor.type === 'dns' || monitor.type === 'steam' || monitor.type === 'gamedig' || monitor.type === 'mqtt' || monitor.type === 'radius' || monitor.type === 'tailscale-ping' || monitor.type === 'snmp'|| monitor.type === 'ping-mikrotik'" class="my-3">
                                 <label for="hostname" class="form-label">{{ $t("Hostname") }}</label>
                                 <input id="hostname" v-model="monitor.hostname" type="text" class="form-control" :pattern="`${monitor.type === 'mqtt' ? mqttIpOrHostnameRegexPattern : ipOrHostnameRegexPattern}`" required>
                             </div>
@@ -532,7 +535,7 @@
                             </div>
 
                             <!-- Timeout: HTTP / Keyword / SNMP only -->
-                            <div v-if="monitor.type === 'http' || monitor.type === 'keyword' || monitor.type === 'json-query' || monitor.type === 'snmp'" class="my-3">
+                            <div v-if="monitor.type === 'http' || monitor.type === 'keyword' || monitor.type === 'json-query' || monitor.type === 'snmp' || monitor.type === 'ping-mikrotik'" class="my-3">
                                 <label for="timeout" class="form-label">{{ $t("Request Timeout") }} ({{ $t("timeoutAfter", [ monitor.timeout || clampTimeout(monitor.interval) ]) }})</label>
                                 <input id="timeout" v-model="monitor.timeout" type="number" class="form-control" required min="0" step="0.1">
                             </div>
@@ -585,7 +588,7 @@
                             </div>
 
                             <!-- Ping packet size -->
-                            <div v-if="monitor.type === 'ping'" class="my-3">
+                            <div v-if="monitor.type === 'ping' || monitor.type === 'ping-mikrotik'" class="my-3">
                                 <label for="packet-size" class="form-label">{{ $t("Packet Size") }}</label>
                                 <input id="packet-size" v-model="monitor.packetSize" type="number" class="form-control" required min="1" max="65500" step="1">
                             </div>
@@ -672,6 +675,94 @@
                                 {{ $t("Setup Notification") }}
                             </button>
 
+                            <div v-if="monitor.type === 'ping-mikrotik'">
+                                <h2 class="mt-5 mb-2">{{ $t("MikroTik Authentication") }}</h2>
+
+                                <!-- Add MikroTik Section -->
+                                <div class="my-3">
+                                    <label for="mikrotik-ip" class="form-label">{{ $t("IP:Port (Port optional)") }}</label>
+                                    <input id="mikrotik-ip" v-model="newMikroTik.ip" type="text" class="form-control">
+                                </div>
+                                <div class="my-3">
+                                    <label for="mikrotik-username" class="form-label">{{ $t("Username") }}</label>
+                                    <input id="mikrotik-username" v-model="newMikroTik.username" type="text" class="form-control">
+                                </div>
+                                <div class="my-3">
+                                    <label for="mikrotik-password" class="form-label">{{ $t("Password") }}</label>
+                                    <input id="mikrotik-password" v-model="newMikroTik.password" type="password" class="form-control">
+                                </div>
+                                <button type="button" class="btn btn-secondary" @click="addMikroTik">{{ $t("Add MikroTik") }}</button>
+
+                                <h3 class="mt-4">{{ $t("Select MikroTik Configuration") }}</h3>
+                                <div class="form-check">
+                                    <input id="mikrotik-none" v-model="monitor.mikrotik_id" :value="null" class="form-check-input" type="radio">
+                                    <label class="form-check-label" for="mikrotik-none">
+                                        {{ $t("Tidak Tersambung Ke Mikrotik") }}
+                                    </label>
+                                </div>
+
+                                <div v-for="(mikrotik, index) in monitor.mikroTikList" :key="mikrotik._id" class="form-check">
+                                    <input :id="'mikrotik-' + mikrotik._id" v-model="monitor.mikrotik_id" :value="mikrotik._id" class="form-check-input" type="radio">
+                                    <label class="form-check-label" :for="'mikrotik-' + mikrotik._id">
+                                        {{ mikrotik._ip }} - {{ mikrotik._username }}
+                                        <button class="btn btn-sm btn-danger ms-2" @click="prepareDeleteMikroTik(index)">Delete</button>
+                                        <button class="btn btn-sm btn-primary ms-2" @click="editMikroTik(index)">{{ $t("Edit") }}</button>
+                                    </label>
+                                </div>
+
+                                <!-- Edit Modal -->
+                                <div ref="editModal" class="modal fade" tabindex="-1" data-bs-backdrop="static">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <form @submit.prevent="updateMikroTik">
+                                                <!-- Prevent form submission -->
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title">Edit MikroTik Configuration</h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    <div class="mb-3">
+                                                        <label for="ip" class="form-label">IP</label>
+                                                        <input id="ip" v-model="newMikroTik._ip" class="form-control" placeholder="IP" />
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label for="username" class="form-label">Username</label>
+                                                        <input id="username" v-model="newMikroTik._username" class="form-control" placeholder="Username" />
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label for="password" class="form-label">Password</label>
+                                                        <input id="password" v-model="newMikroTik._password" type="password" class="form-control" placeholder="Password" />
+                                                    </div>
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                                    <button type="submit" class="btn btn-primary">Save changes</button> <!-- Separate save button -->
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Delete Modal -->
+                                <div ref="deleteModal" class="modal fade" tabindex="-1" data-bs-backdrop="static">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title">Confirm Delete</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <p>Are you sure you want to delete this MikroTik configuration?</p>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                <button type="button" class="btn btn-danger" @click="confirmDeleteMikroTik">Delete</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <!-- Proxies -->
                             <div v-if="monitor.type === 'http' || monitor.type === 'keyword' || monitor.type === 'json-query'">
                                 <h2 class="mt-5 mb-2">{{ $t("Proxy") }}</h2>
@@ -751,7 +842,7 @@
                             </template>
 
                             <!-- HTTP Options -->
-                            <template v-if="monitor.type === 'http' || monitor.type === 'keyword' || monitor.type === 'json-query' ">
+                            <template v-if="monitor.type === 'http' || monitor.type === 'keyword' || monitor.type === 'json-query'">
                                 <h2 class="mt-5 mb-2">{{ $t("HTTP Options") }}</h2>
 
                                 <!-- Method -->
@@ -979,6 +1070,8 @@ import TagsManager from "../components/TagsManager.vue";
 import { genSecret, isDev, MAX_INTERVAL_SECOND, MIN_INTERVAL_SECOND, sleep } from "../util.ts";
 import { hostNameRegexPattern } from "../util-frontend";
 import HiddenInput from "../components/HiddenInput.vue";
+import { Modal } from "bootstrap";
+import { nextTick } from "vue";
 
 const toast = useToast;
 
@@ -1000,7 +1093,7 @@ const monitorDefaults = {
     packetSize: 56,
     expiryNotification: false,
     maxredirects: 10,
-    accepted_statuscodes: [ "200-299" ],
+    accepted_statuscodes: ["200-299"],
     dns_resolve_type: "A",
     dns_resolve_server: "1.1.1.1",
     docker_container: "",
@@ -1021,8 +1114,12 @@ const monitorDefaults = {
     kafkaProducerSsl: false,
     kafkaProducerAllowAutoTopicCreation: false,
     gamedigGivenPortOnly: true,
-    remote_browser: null
+    remote_browser: null,
 };
+
+if (monitorDefaults.type === "ping-mikrotik") {
+    monitorDefaults.mikrotikId = "";
+}
 
 export default {
     components: {
@@ -1040,6 +1137,15 @@ export default {
 
     data() {
         return {
+            isEditModalVisible: false,
+            editModalInstance: null,
+            deleteModalInstance: null,
+            newMikroTik: {
+                ip: "",
+                username: "",
+                password: ""
+            },
+            selectedMikroTikIndex: null,
             minInterval: MIN_INTERVAL_SECOND,
             maxInterval: MAX_INTERVAL_SECOND,
             processing: false,
@@ -1307,6 +1413,7 @@ message HealthCheckResponse {
 
         "$route.fullPath"() {
             this.init();
+            this.fetchMikroTikList();
         },
 
         "monitor.interval"(value, oldValue) {
@@ -1406,7 +1513,14 @@ message HealthCheckResponse {
     },
     mounted() {
         this.init();
-
+        nextTick(() => {
+            if (this.$refs.editModal) {
+                this.editModalInstance = new Modal(this.$refs.editModal);
+            } else {
+                console.error("Modal element not found");
+            }
+        });
+        this.fetchMikroTikList();
         let acceptedStatusCodeOptions = [
             "100-199",
             "200-299",
@@ -1451,7 +1565,7 @@ message HealthCheckResponse {
          */
         init() {
             if (this.isAdd) {
-
+                console.log("monitorDefaults", monitorDefaults);
                 this.monitor = {
                     ...monitorDefaults
                 };
@@ -1481,6 +1595,7 @@ message HealthCheckResponse {
                         }
 
                         this.monitor = res.monitor;
+                        this.fetchMikroTikList();
 
                         if (this.isClone) {
                             /*
@@ -1584,7 +1699,7 @@ message HealthCheckResponse {
                 this.monitor.body = JSON.stringify(JSON.parse(this.monitor.body), null, 4);
             }
 
-            const monitorTypesWithEncodingAllowed = [ "http", "keyword", "json-query" ];
+            const monitorTypesWithEncodingAllowed = [ "http", "keyword", "json-query", "ping-mikrotik" ];
             if (this.monitor.type && !monitorTypesWithEncodingAllowed.includes(this.monitor.type)) {
                 this.monitor.httpBodyEncoding = null;
             }
@@ -1625,9 +1740,10 @@ message HealthCheckResponse {
                 }
             }
 
+            delete this.monitor.mikroTikList;
             if (this.isAdd || this.isClone) {
                 this.$root.add(this.monitor, async (res) => {
-
+                    console.log("Response from addMonitor: ", this.monitorData);
                     if (res.ok) {
                         await this.$refs.tagsManager.submit(res.monitorID);
 
@@ -1646,7 +1762,7 @@ message HealthCheckResponse {
                 });
             } else {
                 await this.$refs.tagsManager.submit(this.monitor.id);
-
+                console.log("Monitor data being sent: ", this.monitor);
                 this.$root.getSocket().emit("editMonitor", this.monitor, (res) => {
                     this.processing = false;
                     this.$root.toastRes(res);
@@ -1658,6 +1774,12 @@ message HealthCheckResponse {
                     }
                 });
             }
+
+            if (this.selectedMikroTikIndex !== null) {
+                const selectedMikroTik = this.monitor.mikroTikList[this.selectedMikroTikIndex];
+                this.monitor.mikrotikId = selectedMikroTik._id;
+            }
+
         },
 
         async startParentGroupMonitor() {
@@ -1721,6 +1843,122 @@ message HealthCheckResponse {
             if (this.monitor.timeout > clampedValue) {
                 this.monitor.timeout = clampedValue;
             }
+        },
+        addMikroTik() {
+            console.log("MikroTik data being sent: ", this.newMikroTik);
+            if (this.newMikroTik.ip && this.newMikroTik.username && this.newMikroTik.password) {
+                try {
+                    console.log("Adding MikroTik: ", this.newMikroTik);
+                    console.log("Socket: ", this.$root.getSocket());
+                    this.$root.getSocket().emit("createMikrotik", this.newMikroTik, (response) => {
+                        console.log("Response from createMikroTik: ", response);
+                        if (response.ok) {
+                            this.fetchMikroTikList();
+                            this.resetMikroTikForm();
+                            console.log("MikroTik added successfully:", this.monitor.mikroTikList);
+                        } else {
+                            alert("Failed to add MikroTik: " + response.error);
+                        }
+                    });
+                } catch (error) {
+                    console.log("Error adding MikroTik:", error);
+                    console.error("Error adding MikroTik:", error);
+                }
+            } else {
+                alert("Please fill in all MikroTik details");
+            }
+        },
+        async fetchMikroTikList() {
+            try {
+                this.$root.getSocket().emit("getMikrotik", (response) => {
+                    console.log("Response received:", response);
+                    if (response.ok) {
+                        this.monitor.mikroTikList = response.mikrotikList;
+                        console.log("MikroTik list updated:", this.monitor.mikroTikList);
+                    } else {
+                        alert("Failed to fetch MikroTik list: " + response.error);
+                    }
+                });
+
+            } catch (error) {
+                console.error("Failed to fetch MikroTik list:", error);
+            }
+        },
+        editMikroTik(index) {
+            this.newMikroTik = { ...this.monitor.mikroTikList[index] };
+            console.log("Editing MikroTik:", JSON.parse(JSON.stringify(this.newMikroTik)));  // Convert to a plain object for logging
+            this.selectedMikroTikIndex = index;
+
+            if (!this.editModalInstance && this.$refs.editModal) {
+                this.editModalInstance = new Modal(this.$refs.editModal);
+            }
+
+            if (this.editModalInstance) {
+                this.editModalInstance.show();
+            } else {
+                console.error("Modal instance not initialized");
+            }
+        },
+
+        closeEditModal() {
+            this.editModalInstance.hide();
+        },
+
+        // Mengkonfirmasi update MikroTik
+        async updateMikroTik() {
+            console.log("Updating MikroTik:", this.newMikroTik);
+            if (this.selectedMikroTikIndex !== null) {
+                try {
+                    this.$root.getSocket().emit("updateMikrotik", this.newMikroTik, (response) => {
+                        if (response.ok) {
+                            this.monitor.mikroTikList[this.selectedMikroTikIndex] = { ...this.newMikroTik };
+                            this.resetMikroTikForm();
+                        } else {
+                            console.log(response);
+                            alert("Failed to update MikroTik: " + response.error);
+                        }
+                    });
+                } catch (error) {
+                    console.error("Error updating MikroTik:", error);
+                }
+                this.editModalInstance.hide();
+            }
+        },
+
+        // Menyiapkan penghapusan MikroTik
+        prepareDeleteMikroTik(index) {
+            this.selectedMikroTikIndex = index;
+            const deleteModal = new Modal(this.$refs.deleteModal);
+            deleteModal.show();
+        },
+
+        // Mengkonfirmasi penghapusan MikroTik
+        confirmDeleteMikroTik() {
+            if (this.selectedMikroTikIndex !== null) {
+                const mikrotik = this.monitor.mikroTikList[this.selectedMikroTikIndex];
+                console.log("Deleting MikroTik:", mikrotik._id);
+                this.$root.getSocket().emit("deleteMikrotik", { id: mikrotik._id }, (response) => {
+                    if (response.ok) {
+                        this.monitor.mikroTikList.splice(this.selectedMikroTikIndex, 1);
+                        this.selectedMikroTikIndex = null;
+                        const deleteModal = Modal.getInstance(this.$refs.deleteModal);
+                        deleteModal.hide();
+                    } else {
+                        console.log(response);
+                        alert("Failed to delete MikroTik: " + response.error);
+                    }
+                });
+            }
+        },
+        closeDeleteModal() {
+            this.isDeleteModalVisible = false;
+        },
+
+        resetMikroTikForm() {
+            this.newMikroTik = { ip: "",
+                username: "",
+                password: "" };
+            this.selectedMikroTikIndex = null;
         },
 
     },

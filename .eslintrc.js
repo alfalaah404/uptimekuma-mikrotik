@@ -146,6 +146,7 @@ module.exports = {
             "files": [ "src/languages/*.js", "src/icon.js" ],
             "rules": {
                 "comma-dangle": [ "error", "always-multiline" ],
+                "linebreak-style": [ "error", "unix" ],
             }
         },
 

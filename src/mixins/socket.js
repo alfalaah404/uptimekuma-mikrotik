@@ -114,6 +114,39 @@ export default {
 
             socket = io(url);
 
+            socket.on("createMikrotik", (mikroTikData, callback) => {
+                console.log("Creating MikroTik configuration...");
+                // Kirim data ke server melalui REST API atau langsung lewat socket
+                socket.emit("createMikrotik", mikroTikData, (response) => {
+                    if (response.ok) {
+                        console.log("MikroTik configuration saved successfully");
+                    }
+                    callback(response);
+                });
+            });
+
+            socket.on("getMikrotik", (callback) => {
+                callback({ ok: true,
+                    data: this.mikroTikList });
+            });
+
+            socket.on("updateMikrotik", (mikroTikData, callback) => {
+                console.log("Uptdating MikroTik configuration...");
+                // Kirim data ke server melalui REST API atau langsung lewat socket
+                socket.emit("updateMikrotik", mikroTikData, (response) => {
+                    if (response.ok) {
+                        console.log("MikroTik configuration saved successfully");
+                    }
+                    callback(response);
+                });
+            });
+
+            socket.on("deleteMikrotik", (id, callback) => {
+                socket.emit("deleteMikrotik", id, (response) => {
+                    callback(response);
+                });
+            });
+
             socket.on("info", (info) => {
                 this.info = info;
             });
