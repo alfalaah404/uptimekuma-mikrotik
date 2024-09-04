@@ -1565,7 +1565,6 @@ message HealthCheckResponse {
          */
         init() {
             if (this.isAdd) {
-                console.log("monitorDefaults", monitorDefaults);
                 this.monitor = {
                     ...monitorDefaults
                 };
@@ -1743,7 +1742,6 @@ message HealthCheckResponse {
             delete this.monitor.mikroTikList;
             if (this.isAdd || this.isClone) {
                 this.$root.add(this.monitor, async (res) => {
-                    console.log("Response from addMonitor: ", this.monitorData);
                     if (res.ok) {
                         await this.$refs.tagsManager.submit(res.monitorID);
 
@@ -1762,7 +1760,6 @@ message HealthCheckResponse {
                 });
             } else {
                 await this.$refs.tagsManager.submit(this.monitor.id);
-                console.log("Monitor data being sent: ", this.monitor);
                 this.$root.getSocket().emit("editMonitor", this.monitor, (res) => {
                     this.processing = false;
                     this.$root.toastRes(res);
@@ -1845,23 +1842,17 @@ message HealthCheckResponse {
             }
         },
         addMikroTik() {
-            console.log("MikroTik data being sent: ", this.newMikroTik);
             if (this.newMikroTik.ip && this.newMikroTik.username && this.newMikroTik.password) {
                 try {
-                    console.log("Adding MikroTik: ", this.newMikroTik);
-                    console.log("Socket: ", this.$root.getSocket());
                     this.$root.getSocket().emit("createMikrotik", this.newMikroTik, (response) => {
-                        console.log("Response from createMikroTik: ", response);
                         if (response.ok) {
                             this.fetchMikroTikList();
                             this.resetMikroTikForm();
-                            console.log("MikroTik added successfully:", this.monitor.mikroTikList);
                         } else {
                             alert("Failed to add MikroTik: " + response.error);
                         }
                     });
                 } catch (error) {
-                    console.log("Error adding MikroTik:", error);
                     console.error("Error adding MikroTik:", error);
                 }
             } else {
@@ -1871,10 +1862,8 @@ message HealthCheckResponse {
         async fetchMikroTikList() {
             try {
                 this.$root.getSocket().emit("getMikrotik", (response) => {
-                    console.log("Response received:", response);
                     if (response.ok) {
                         this.monitor.mikroTikList = response.mikrotikList;
-                        console.log("MikroTik list updated:", this.monitor.mikroTikList);
                     } else {
                         alert("Failed to fetch MikroTik list: " + response.error);
                     }
@@ -1886,7 +1875,6 @@ message HealthCheckResponse {
         },
         editMikroTik(index) {
             this.newMikroTik = { ...this.monitor.mikroTikList[index] };
-            console.log("Editing MikroTik:", JSON.parse(JSON.stringify(this.newMikroTik)));  // Convert to a plain object for logging
             this.selectedMikroTikIndex = index;
 
             if (!this.editModalInstance && this.$refs.editModal) {
@@ -1906,7 +1894,6 @@ message HealthCheckResponse {
 
         // Mengkonfirmasi update MikroTik
         async updateMikroTik() {
-            console.log("Updating MikroTik:", this.newMikroTik);
             if (this.selectedMikroTikIndex !== null) {
                 try {
                     this.$root.getSocket().emit("updateMikrotik", this.newMikroTik, (response) => {
@@ -1914,7 +1901,6 @@ message HealthCheckResponse {
                             this.monitor.mikroTikList[this.selectedMikroTikIndex] = { ...this.newMikroTik };
                             this.resetMikroTikForm();
                         } else {
-                            console.log(response);
                             alert("Failed to update MikroTik: " + response.error);
                         }
                     });
@@ -1936,7 +1922,6 @@ message HealthCheckResponse {
         confirmDeleteMikroTik() {
             if (this.selectedMikroTikIndex !== null) {
                 const mikrotik = this.monitor.mikroTikList[this.selectedMikroTikIndex];
-                console.log("Deleting MikroTik:", mikrotik._id);
                 this.$root.getSocket().emit("deleteMikrotik", { id: mikrotik._id }, (response) => {
                     if (response.ok) {
                         this.monitor.mikroTikList.splice(this.selectedMikroTikIndex, 1);
@@ -1944,7 +1929,6 @@ message HealthCheckResponse {
                         const deleteModal = Modal.getInstance(this.$refs.deleteModal);
                         deleteModal.hide();
                     } else {
-                        console.log(response);
                         alert("Failed to delete MikroTik: " + response.error);
                     }
                 });
