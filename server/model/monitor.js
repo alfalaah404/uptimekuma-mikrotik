@@ -486,10 +486,7 @@ class Monitor extends BeanModel {
                             `=size=${packetSize}`,
                         ]);
 
-                        log.info("Ping response:", pingResponse);
-
-                        // Extract the time string
-                        const firstResponse = pingResponse[0]; // Access the first object in the array
+                        const firstResponse = pingResponse[0];
                         const timeString = firstResponse?.time || null;
 
                         if (timeString) {
@@ -503,7 +500,6 @@ class Monitor extends BeanModel {
 
                         await client.close();
                     } catch (error) {
-                        console.error("Connection or ping failed:", error);
                         throw new Error(`Ping failed: ${error.message} - ${this.hostname}`);
                     }
                 } else if (this.type === "http" || this.type === "keyword" || this.type === "json-query") {
