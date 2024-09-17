@@ -495,7 +495,7 @@ class Monitor extends BeanModel {
                             bean.msg = `Ping successful: ${this.hostname}`;
                             bean.ping = timeInMs;
                         } else {
-                            throw new Error(`Ping successful but time not found in response: ${JSON.stringify(pingResponse)}`);
+                            throw new Error("Ping successful but time not found in response");
                         }
 
                         await client.close();
