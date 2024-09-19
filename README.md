@@ -193,3 +193,44 @@ Feel free to correct the grammar in the documentation or code.
 My mother language is not English and my grammar is not that great.
 
 
+## Additional Installation Steps
+
+After following the basic installation steps, please follow these additional steps to complete the setup:
+
+1. **Install required npm packages**:
+    ```bash
+    npm install
+    ```
+
+2. **Audit and fix vulnerabilities (optional)**:
+    ```bash
+    npm audit
+    npm audit fix --force
+    ```
+
+3. **Build the project**:
+    ```bash
+    npm run build
+    ```
+
+4. **Create the database**:
+    Run the following SQL commands to create a database and user for Uptime Kuma:
+    ```sql
+    CREATE DATABASE uptimekuma_new;
+    CREATE USER 'uptimekuma_new'@'%' IDENTIFIED BY 'P@SSW0RD';
+    GRANT ALL PRIVILEGES ON uptimekuma_new.* TO 'uptimekuma_new'@'%';
+    FLUSH PRIVILEGES;
+    ```
+
+5. **Start the server**:
+    ```bash
+    node server/server.js
+    ```
+
+6. **Open your browser**:
+    - Configure the database connection through the browser.
+
+7. **Run the development server**:
+    ```bash
+    npm run dev
+    ```
